@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro Pro Diploma</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --primary:#e63946;
+  --bg1:#f1faee;
+  --bg2:#ffffff;
+  --text:#1d3557;
+  --glass:rgba(255,255,255,0.25);
+}
+
+body.dark{
+  --bg1:#1a1a2e;
+  --bg2:#16213e;
+  --text:#ffffff;
+  --glass:rgba(255,255,255,0.08);
+}
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:'Poppins',sans-serif;
+}
+
+body{
+  background:linear-gradient(135deg,var(--bg1),var(--bg2));
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+  transition:0.4s;
+}
+
+/* Tomato Background */
+.tomato{
+  position:absolute;
+  border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, #ff6b6b, #c1121f);
+  opacity:0.25;
+  animation:float 8s infinite ease-in-out alternate;
+}
+
+.tomato:nth-child(1){ width:200px;height:200px;top:10%;left:5%;}
+.tomato:nth-child(2){ width:150px;height:150px;bottom:15%;right:10%;}
+.tomato:nth-child(3){ width:100px;height:100px;top:70%;left:40%;}
+
+@keyframes float{
+  from{transform:translateY(0px);}
+  to{transform:translateY(-30px);}
+}
+
+.container{
+  backdrop-filter:blur(15px);
+  background:var(--glass);
+  border-radius:25px;
+  padding:40px;
+  width:90%;
+  max-width:420px;
+  text-align:center;
+  box-shadow:0 20px 40px rgba(0,0,0,0.2);
+  z-index:2;
+  position:relative;
+}
+
+h1{ font-weight:700; margin-bottom:10px; }
+
+.mode{ font-size:18px; margin-bottom:10px; }
+
+.timer{ font-size:60px; font-weight:700; margin:20px 0; }
+
+.buttons button{
+  padding:10px 18px;
+  border:none;
+  border-radius:30px;
+  margin:5px;
+  cursor:pointer;
+  font-weight:500;
+  transition:0.3s;
+}
+
+.start{background:var(--primary);color:white;}
+.pause{background:#6c757d;color:white;}
+.reset{background:#adb5bd;}
+
+.buttons button:hover{ transform:scale(1.05); }
+
+.sessions{ margin-top:15px; font-size:14px; }
+
+/* Language selector */
+.language-select{
+  position:absolute;
+  left:20px;
+  top:20px;
+}
+
+/* Settings */
+.settings-header{
+  margin-top:20px;
+  cursor:pointer;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+}
+
+.arrow{
+  transition:0.3s;
+}
+
+.arrow.rotate{
+  transform:rotate(90deg);
+}
+
+.settings{
+  max-height:0;
+  overflow:hidden;
+  transition:max-height 0.4s ease;
+  text-align:left;
+  margin-top:10px;
+}
+
+.settings.active{ max-height:300px; }
+
+.settings input{ width:60px; margin:5px 0; }
+
+/* Theme icon */
+.theme-toggle{
+  position:absolute;
+  right:20px;
+  top:20px;
+  font-size:22px;
+  cursor:pointer;
+}
+
+@media(max-width:480px){
+  .timer{ font-size:45px; }
+  .container{ padding:25px; }
+}
+</style>
+</head>
+<body>
+
+<div class="tomato"></div>
+<div class="tomato"></div>
+<div class="tomato"></div>
+
+<div class="theme-toggle" onclick="toggleTheme()" id="themeIcon">☀️</div>
+
+<div class="container">
+
+  <select class="language-select" onchange="changeLanguage(this.value)">
+  <option value="en">EN</option>
+  <option value="ru" selected>RU</option>
+  <option value="kg">KG</option>
+</select>
+
+
+  <h1 id="title">🍅 Pomodoro Pro</h1>
+  <div class="mode" id="mode">Work</div>
+  <div class="timer" id="timer">25:00</div>
+
+  <div class="buttons">
+    <button class="start" onclick="startTimer()" id="startBtn">Start</button>
+    <button class="pause" onclick="pauseTimer()" id="pauseBtn">Pause</button>
+    <button class="reset" onclick="resetTimer()" id="resetBtn">Reset</button>
+  </div>
+
+  <div class="sessions">
+    <span id="sessionsText">Sessions Completed</span>:
+    <span id="sessions">0</span>
+  </div>
+
+  <div class="settings-header" onclick="toggleSettings()">
+    <span class="arrow" id="arrow">▶</span>
+    <span id="settingsLabel">Click to customize your timer settings</span>
+  </div>
+
+  <div class="settings" id="settings">
+    <span id="workLabel">Work</span>:
+    <input type="number" id="workDuration" value="25"> min<br>
+
+    <span id="shortLabel">Short Break</span>:
+    <input type="number" id="shortBreak" value="5"> min<br>
+
+    <span id="longLabel">Long Break</span>:
+    <input type="number" id="longBreak" value="15"> min<br>
+
+    <span id="intervalLabel">Long Break Interval</span>:
+    <input type="number" id="longBreakInterval" value="4">
+  </div>
+
+</div>
+
+<audio id="alarm" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
+
+<script>
+    let intervalId, timeLeft=25*60,isRunning=false;
+
+
+let currentMode="work",sessionsCompleted=0;
+let currentLanguage= "ru";
+const timerDisplay = document.getElementById("timer");
+const modeDisplay = document.getElementById("mode");
+const sessionsDisplay = document.getElementById("sessions");
+
+const workDuration = document.getElementById("workDuration");
+const shortBreak = document.getElementById("shortBreak");
+const longBreak = document.getElementById("longBreak");
+const longBreakInterval = document.getElementById("longBreakInterval");
+
+const settings = document.getElementById("settings");
+const arrow = document.getElementById("arrow");
+const themeIcon = document.getElementById("themeIcon");
+
+
+const alarm=document.getElementById("alarm");
+
+const translations={
+  en:{
+    title:"🍅 Pomodoro Pro",
+    start:"Start",
+    pause:"Pause",
+    reset:"Reset",
+    sessions:"Sessions Completed",
+    work:"Work",
+    short:"Short Break",
+    long:"Long Break",
+    interval:"Long Break Interval",
+    settings:"Click to customize your timer settings"
+  },
+  ru:{
+    title:"🍅 Помодоро Про",
+    start:"Старт",
+    pause:"Пауза",
+    reset:"Сброс",
+    sessions:"Завершено сессий",
+    work:"Работа",
+    short:"Короткий перерыв",
+    long:"Длинный перерыв",
+    interval:"Интервал длинного перерыва",
+    settings:"Нажмите, чтобы настроить таймер"
+  },
+  kg:{
+    title:"🍅 Помодоро Про",
+    start:"Баштоо",
+    pause:"Токтотуу",
+    reset:"Кайра баштоо",
+    sessions:"Аяктаган сессиялар",
+    work:"Иш убактысы",
+    short:"Кыска тыныгуу",
+    long:"Узун тыныгуу",
+    interval:"Узун тыныгуу аралыгы",
+    settings:"Таймерди жөндөө үчүн басыңыз"
+  }
+};
+
+function changeLanguage(lang){
+  currentLanguage=lang;
+  const t=translations[lang];
+
+  document.getElementById("title").textContent=t.title;
+  document.getElementById("startBtn").textContent=t.start;
+  document.getElementById("pauseBtn").textContent=t.pause;
+  document.getElementById("resetBtn").textContent=t.reset;
+  document.getElementById("sessionsText").textContent=t.sessions;
+
+  document.getElementById("workLabel").textContent=t.work;
+  document.getElementById("shortLabel").textContent=t.short;
+  document.getElementById("longLabel").textContent=t.long;
+  document.getElementById("intervalLabel").textContent=t.interval;
+
+  document.getElementById("settingsLabel").textContent=t.settings;
+
+  updateModeText();
+}
+
+function updateModeText(){
+  const t=translations[currentLanguage];
+  if(currentMode==="work"){
+    document.getElementById("mode").textContent=t.work;
+  }else if(currentMode==="short"){
+    document.getElementById("mode").textContent=t.short;
+  }else{
+    document.getElementById("mode").textContent=t.long;
+  }
+}
+
+function toggleSettings(){
+  settings.classList.toggle("active");
+  arrow.classList.toggle("rotate");
+}
+
+function toggleTheme(){
+  document.body.classList.toggle("dark");
+  themeIcon.textContent=
+    document.body.classList.contains("dark")?"🌙":"☀️";
+}
+
+function getSettings(){
+  return{
+    work:workDuration.value*60,
+    short:shortBreak.value*60,
+    long:longBreak.value*60,
+    interval:longBreakInterval.value
+  };
+}
+
+function updateDisplay(){
+  let m = Math.floor(timeLeft/60);
+  let s = timeLeft % 60;
+
+  timerDisplay.textContent =
+    String(m).padStart(2,"0") + ":" +
+    String(s).padStart(2,"0");
+}
+
+
+function startTimer(){
+  if(isRunning) return;
+
+  isRunning = true;
+
+  intervalId = setInterval(() => {
+    timeLeft--;
+    updateDisplay();
+
+    if(timeLeft <= 0){
+      clearInterval(intervalId);
+      isRunning = false;
+      alarm.play();
+      switchMode();
+    }
+
+  }, 1000);
+}
+
+
+function pauseTimer(){
+  clearInterval(intervalId);
+  isRunning = false;
+}
+
+
+function resetTimer(){
+  pauseTimer();
+  const s=getSettings();
+  currentMode="work";
+  sessionsCompleted=0;
+  timeLeft=s.work;
+  document.getElementById("sessions").textContent=0;
+  updateModeText();
+  updateDisplay();
+}
+
+function switchMode(){
+  const s=getSettings();
+  if(currentMode==="work"){
+    sessionsCompleted++;
+    document.getElementById("sessions").textContent=sessionsCompleted;
+
+    if(sessionsCompleted % s.interval==0){
+      currentMode="long";
+      timeLeft=s.long;
+    }else{
+      currentMode="short";
+      timeLeft=s.short;
+    }
+  }else{
+    currentMode="work";
+    timeLeft=s.work;
+  }
+  updateModeText();
+  updateDisplay();
+  startTimer();
+}
+
+changeLanguage("ru");   // set Russian on load
+updateDisplay();
+
+</script>
+
+</body>
+</html>
